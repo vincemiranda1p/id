@@ -6,7 +6,7 @@ const UI_INTERVAL_MS = 90;
 
 const BLUR_LAPLACIAN_THRESHOLD = 30;
 const FOCUS_TENENGRAD_THRESHOLD = 22;
-const FACE_BLUR_LAPLACIAN_THRESHOLD_DEFAULT = 6;
+const FACE_BLUR_LAPLACIAN_THRESHOLD_DEFAULT = 2;
 
 const faceBlurThresholdParam = Number(new URLSearchParams(window.location.search).get("faceBlurThreshold"));
 const FACE_BLUR_LAPLACIAN_THRESHOLD =
