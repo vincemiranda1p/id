@@ -1,0 +1,238 @@
+﻿:root {
+  --bg: #0d1117;
+  --panel: #161b22;
+  --text: #f0f6fc;
+  --muted: #9da7b5;
+  --white-state: #ffffff;
+  --bad-state: #ff4d4f;
+  --good-state: #39d353;
+  --button: #2f81f7;
+  --button-disabled: #435066;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at top right, #1f2937 0%, transparent 45%),
+    radial-gradient(circle at bottom left, #152238 0%, transparent 50%),
+    var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+
+.app-shell {
+  max-width: 520px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  padding: 16px 14px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  letter-spacing: 0.01em;
+}
+
+.app-header p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.camera-stage {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #000;
+  min-height: 56dvh;
+  box-shadow: 0 14px 45px rgba(0, 0, 0, 0.45);
+}
+
+#camera {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.face-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.face-box {
+  position: absolute;
+  border: 2px solid #4dd3ff;
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.face-confidence {
+  position: absolute;
+  left: 0;
+  top: -24px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #e8f7ff;
+  border: 1px solid rgba(77, 211, 255, 0.45);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.guide {
+  position: absolute;
+  width: min(85vw, 360px);
+  aspect-ratio: 1.586;
+  max-width: 92%;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border: 3px solid var(--white-state);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.36);
+}
+
+.guide-white {
+  border-color: var(--white-state);
+}
+
+.guide-red {
+  border-color: var(--bad-state);
+  box-shadow:
+    0 0 0 9999px rgba(0, 0, 0, 0.36),
+    0 0 0 2px rgba(255, 77, 79, 0.3);
+}
+
+.guide-green {
+  border-color: var(--good-state);
+  box-shadow:
+    0 0 0 9999px rgba(0, 0, 0, 0.36),
+    0 0 0 2px rgba(57, 211, 83, 0.35);
+}
+
+.status-panel {
+  background: color-mix(in srgb, var(--panel) 88%, #000 12%);
+  border: 1px solid rgba(240, 246, 252, 0.08);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.status-label {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.issues-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  min-height: 1.4em;
+}
+
+.issues-list li {
+  margin: 3px 0;
+}
+
+.action-row {
+  display: flex;
+  gap: 10px;
+}
+
+.capture-btn {
+  border: 0;
+  border-radius: 999px;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 14px 16px;
+  color: #fff;
+  background: var(--button-disabled);
+  transition: transform 120ms ease, background 120ms ease;
+  flex: 1;
+}
+
+.capture-btn.enabled {
+  cursor: pointer;
+  background: var(--button);
+}
+
+.capture-btn.enabled:active {
+  transform: scale(0.985);
+}
+
+.redo-btn {
+  border: 1px solid rgba(240, 246, 252, 0.2);
+  border-radius: 999px;
+  background: #1d2430;
+  color: #c7d3e1;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  padding: 14px 16px;
+  transition: transform 120ms ease, background 120ms ease;
+  flex: 1;
+}
+
+.redo-btn.enabled {
+  cursor: pointer;
+  background: #2b3646;
+  color: #f0f6fc;
+}
+
+.redo-btn.enabled:active {
+  transform: scale(0.985);
+}
+
+.capture-result {
+  background: color-mix(in srgb, var(--panel) 90%, #000 10%);
+  border: 1px solid rgba(240, 246, 252, 0.08);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.capture-result h2 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+#capturePreview {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(240, 246, 252, 0.15);
+  display: block;
+}
+
+.download-link {
+  display: inline-block;
+  margin-top: 10px;
+  color: #9ecbff;
+}
+
+.hidden {
+  display: none !important;
+}
+
+@media (min-width: 700px) {
+  .app-shell {
+    padding-top: 24px;
+  }
+
+  .camera-stage {
+    min-height: 60dvh;
+  }
+}

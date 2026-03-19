@@ -1,0 +1,57 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0d1117" />
+    <title>ID Capture Checker</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script async src="https://docs.opencv.org/4.10.0/opencv.js"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <h1>ID Capture Checker</h1>
+        <p>Align the ID and wait for a green border before capture.</p>
+      </header>
+
+      <section class="camera-stage" aria-label="Camera preview">
+        <video id="camera" autoplay playsinline muted></video>
+        <div id="guide" class="guide guide-white" aria-hidden="true"></div>
+        <div id="faceOverlay" class="face-overlay" aria-hidden="true">
+          <div id="faceBox" class="face-box hidden">
+            <span id="faceConfidence" class="face-confidence">Face 0%</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="status-panel" aria-live="polite">
+        <p id="statusLabel" class="status-label">Looking for an ID card...</p>
+        <ul id="issuesList" class="issues-list">
+          <li>NO ID FOUND</li>
+        </ul>
+      </section>
+
+      <div class="action-row">
+        <button id="submitButton" class="capture-btn" type="button" disabled>
+          Submit Photo
+        </button>
+        <button id="redoButton" class="redo-btn" type="button" disabled>
+          Redo Scan
+        </button>
+      </div>
+
+      <section id="captureResult" class="capture-result hidden" aria-live="polite">
+        <h2>Submitted ID Photo</h2>
+        <img id="capturePreview" alt="Captured ID preview" />
+        <a id="downloadLink" class="download-link" download="captured-id.jpg">Download JPEG</a>
+      </section>
+    </main>
+
+    <canvas id="analysisCanvas" class="hidden" width="320" height="240"></canvas>
+    <canvas id="faceCanvas" class="hidden" width="256" height="160"></canvas>
+    <canvas id="captureCanvas" class="hidden"></canvas>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
