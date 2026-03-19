@@ -7,6 +7,12 @@ const UI_INTERVAL_MS = 90;
 const BLUR_LAPLACIAN_THRESHOLD = 30;
 const FOCUS_TENENGRAD_THRESHOLD = 22;
 const FACE_BLUR_LAPLACIAN_THRESHOLD_DEFAULT = 2;
+const VISION_BUNDLE_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/vision_bundle.mjs";
+const VISION_WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm";
+const FACE_DETECTOR_MODEL_URL =
+  "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite";
+const FACE_LANDMARKER_MODEL_URL =
+  "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task";
 
 const faceBlurThresholdParam = Number(new URLSearchParams(window.location.search).get("faceBlurThreshold"));
 const FACE_BLUR_LAPLACIAN_THRESHOLD =
@@ -55,6 +61,7 @@ const faceSharpnessCanvas = document.createElement("canvas");
 const faceSharpnessCtx = faceSharpnessCanvas.getContext("2d", { willReadFrequently: true });
 
 let faceDetector = null;
+let faceLandmarker = null;
 let activeStream = null;
 let cvReady = false;
 let cameraReady = false;
@@ -400,6 +407,35 @@ function getFaceConfidence(bestFace) {
   return 0;
 }
 
+function getLandmarkBoundingBox(landmarks, width, height) {
+  if (!landmarks?.length) {
+    return null;
+  }
+
+  let minX = 1;
+  let minY = 1;
+  let maxX = 0;
+  let maxY = 0;
+
+  for (const point of landmarks) {
+    minX = Math.min(minX, point.x);
+    minY = Math.min(minY, point.y);
+    maxX = Math.max(maxX, point.x);
+    maxY = Math.max(maxY, point.y);
+  }
+
+  return clampRect(
+    {
+      x: Math.round(minX * width),
+      y: Math.round(minY * height),
+      width: Math.round((maxX - minX) * width),
+      height: Math.round((maxY - minY) * height),
+    },
+    width,
+    height
+  );
+}
+
 function clearFaceOverlay() {
   faceBoxElement.classList.add("hidden");
   faceBoxElement.style.left = "0px";
@@ -437,7 +473,7 @@ function renderFaceOverlay() {
 }
 
 function updateFaceDetection(guideRect) {
-  if (!faceDetector) {
+  if (!faceDetector || !faceLandmarker) {
     state.faceDetected = false;
     state.faceBlurry = false;
     state.faceLaplacianVariance = 0;
@@ -460,10 +496,44 @@ function updateFaceDetection(guideRect) {
     faceCanvas.height
   );
 
-  const detection = faceDetector.detect(faceCanvas);
+  const timestamp = performance.now();
+  const detection = faceDetector.detectForVideo(faceCanvas, timestamp);
   const detections = detection?.detections ?? [];
+  const landmarkResult = faceLandmarker.detectForVideo(faceCanvas, timestamp);
+  const landmarkFace = landmarkResult?.faceLandmarks?.[0] ?? null;
 
-  if (detections.length === 0) {
+  let bestFace = null;
+  let bestBox = null;
+
+  if (detections.length > 0) {
+    bestFace = detections[0];
+    let bestArea = bestFace.boundingBox.width * bestFace.boundingBox.height;
+
+    for (let i = 1; i < detections.length; i += 1) {
+      const candidate = detections[i];
+      const area = candidate.boundingBox.width * candidate.boundingBox.height;
+      if (area > bestArea) {
+        bestArea = area;
+        bestFace = candidate;
+      }
+    }
+
+    bestBox = clampRect(
+      {
+        x: Math.round(bestFace.boundingBox.originX),
+        y: Math.round(bestFace.boundingBox.originY),
+        width: Math.round(bestFace.boundingBox.width),
+        height: Math.round(bestFace.boundingBox.height),
+      },
+      faceCanvas.width,
+      faceCanvas.height
+    );
+  }
+
+  const landmarkBox = getLandmarkBoundingBox(landmarkFace, faceCanvas.width, faceCanvas.height);
+  const chosenBox = landmarkBox ?? bestBox;
+
+  if (!chosenBox) {
     state.faceDetected = false;
     state.faceBlurry = false;
     state.faceLaplacianVariance = 0;
@@ -472,38 +542,15 @@ function updateFaceDetection(guideRect) {
     return;
   }
 
-  let bestFace = detections[0];
-  let bestArea = bestFace.boundingBox.width * bestFace.boundingBox.height;
-
-  for (let i = 1; i < detections.length; i += 1) {
-    const candidate = detections[i];
-    const area = candidate.boundingBox.width * candidate.boundingBox.height;
-    if (area > bestArea) {
-      bestArea = area;
-      bestFace = candidate;
-    }
-  }
-
-  const bestBox = clampRect(
-    {
-      x: Math.round(bestFace.boundingBox.originX),
-      y: Math.round(bestFace.boundingBox.originY),
-      width: Math.round(bestFace.boundingBox.width),
-      height: Math.round(bestFace.boundingBox.height),
-    },
-    faceCanvas.width,
-    faceCanvas.height
-  );
-
   state.faceDetected = true;
-  state.faceConfidence = getFaceConfidence(bestFace);
-  state.faceLaplacianVariance = computeFaceLaplacianVariance(bestFace.boundingBox);
+  state.faceConfidence = bestFace ? getFaceConfidence(bestFace) : 0.5;
+  state.faceLaplacianVariance = computeFaceLaplacianVariance(chosenBox);
   state.faceBlurry = state.faceLaplacianVariance < FACE_BLUR_LAPLACIAN_THRESHOLD;
   state.faceBoxInAnalysis = {
-    x: guideRect.x + bestBox.x,
-    y: guideRect.y + bestBox.y,
-    width: bestBox.width,
-    height: bestBox.height,
+    x: guideRect.x + chosenBox.x,
+    y: guideRect.y + chosenBox.y,
+    width: chosenBox.width,
+    height: chosenBox.height,
   };
 }
 
@@ -846,20 +893,31 @@ function onCameraError(error) {
   clearFaceOverlay();
 }
 
-async function setupFaceDetector() {
-  const vision = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17");
-  const fileset = await vision.FilesetResolver.forVisionTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm"
-  );
+async function setupFaceModels() {
+  const vision = await import(VISION_BUNDLE_URL);
+  const fileset = await vision.FilesetResolver.forVisionTasks(VISION_WASM_URL);
 
   faceDetector = await vision.FaceDetector.createFromOptions(fileset, {
     baseOptions: {
-      modelAssetPath:
-        "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite",
+      modelAssetPath: FACE_DETECTOR_MODEL_URL,
       delegate: "GPU",
     },
-    runningMode: "IMAGE",
-    minDetectionConfidence: 0.35,
+    runningMode: "VIDEO",
+    minDetectionConfidence: 0.25,
+  });
+
+  faceLandmarker = await vision.FaceLandmarker.createFromOptions(fileset, {
+    baseOptions: {
+      modelAssetPath: FACE_LANDMARKER_MODEL_URL,
+      delegate: "GPU",
+    },
+    runningMode: "VIDEO",
+    numFaces: 1,
+    minFaceDetectionConfidence: 0.25,
+    minFacePresenceConfidence: 0.2,
+    minTrackingConfidence: 0.2,
+    outputFaceBlendshapes: false,
+    outputFacialTransformationMatrixes: false,
   });
 }
 
@@ -898,7 +956,7 @@ async function init() {
   });
 
   try {
-    await Promise.all([startCamera(), waitForOpenCv(), setupFaceDetector()]);
+    await Promise.all([startCamera(), waitForOpenCv(), setupFaceModels()]);
     cvReady = true;
     statusLabel.textContent = "Camera ready. Align your ID inside the rectangle.";
     renderIssues([ISSUE_NO_ID]);
